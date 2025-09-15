@@ -1,0 +1,20 @@
+general_settings:
+  # Set via env var LITELLM_MASTER_KEY in production; fallback here for local/dev
+  master_key: "<YOUR_MASTER_KEY>"
+
+model_list:
+  - model_name: gpt-5                   # public name your apps call
+    litellm_params:
+      model: gpt-5                      # upstream OpenAI model id
+
+# Best practices for production
+# Docs: https://docs.litellm.ai/docs/proxy/prod
+litellm_settings:
+  telemetry: false
+  set_verbose: false
+  json_logs: true
+  drop_params: true
+  num_retries: 3
+  request_timeout: 15
+
+# Database settings are provided via env var DATABASE_URL at runtime
