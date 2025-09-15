@@ -167,7 +167,6 @@ gcloud sql instances create "litellm-db" \
     --storage-size="10GB" \
     --storage-auto-increase \
     --backup-start-time="03:00" \
-    --enable-bin-log \
     --project="$MY_PROJECT_ID" \
     --quiet
 ```
