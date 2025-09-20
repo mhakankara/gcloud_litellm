@@ -240,31 +240,31 @@ Generate a master key:
 
 ```bash
 MY_RANDOM=$(openssl rand -hex 21)
-echo "Proxy master key: 'sk-$MY_RANDOM'"
+MY_SALT=$(openssl rand -hex 32)
+echo "MASTER: sk-$MY_RANDOM"
+echo "SALT  : sk-$MY_SALT"
 ```
 
-Deploy:
+Set DB password
+
+```bash
+MY_DB_PASSWORD=""
+```
 
 ```bash
 gcloud run deploy "litellm-proxy" \
   --image="${MY_REGION}-docker.pkg.dev/${MY_PROJECT_ID}/${MY_ARTIFACT_REPOSITORY}/litellm-proxy:latest" \
-  --memory=1024Mi \
-  --cpu=1 \
-  --cpu-boost \
-  --port="8080" \
-  --execution-environment=gen1 \
-  --description="LiteLLM Proxy (OpenAI GPT-5 only)" \
   --region="$MY_REGION" \
-  --set-env-vars="LITELLM_MODE=PRODUCTION,LITELLM_LOG=ERROR" \
-  --set-env-vars="OPENAI_API_KEY=${MY_OPENAI_API_KEY}" \
-  --set-env-vars="LITELLM_MASTER_KEY=sk-${MY_RANDOM}" \
-  --set-env-vars="DATABASE_URL=postgresql://postgres:<YOUR_DB_PASSWORD>@/litellm?host=/cloudsql/${MY_DB_CONNECTION_NAME}" \
-  --add-cloudsql-instances="${MY_DB_CONNECTION_NAME}" \
-  --max-instances=1 \
+  --memory="2Gi" \
+  --cpu="2" \
+  --cpu-boost \
+  --execution-environment="gen1" \
+  --port="8080" \
+  --add-cloudsql-instances="${MY_PROJECT_ID}:us-central1:litellm-db" \
+  --service-account="litellm-proxy@${MY_PROJECT_ID}.iam.gserviceaccount.com" \
   --allow-unauthenticated \
-  --service-account "litellm-proxy@${MY_PROJECT_ID}.iam.gserviceaccount.com" \
-  --project="$MY_PROJECT_ID" \
-  --quiet
+  --set-env-vars=LITELLM_MODE=PRODUCTION,LITELLM_LOG=ERROR,OPENAI_API_KEY=${MY_OPENAI_API_KEY},LITELLM_MASTER_KEY=sk-${MY_RANDOM},LITELLM_SALT_KEY=sk-${MY_SALT},DATABASE_URL=postgresql://postgres:${MY_DB_PASSWORD}@/litellm?host=/cloudsql/${MY_PROJECT_ID}:us-central1:litellm-db \
+  --project="$MY_PROJECT_ID" --quiet
 ```
 
 ---
