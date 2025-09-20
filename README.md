@@ -176,7 +176,6 @@ gcloud sql databases create "litellm" \
   --project="$MY_PROJECT_ID" \
   --quiet
 ```
-```
 
 Get the connection name:
 
@@ -226,7 +225,7 @@ gcloud builds submit \
   --tag="${MY_REGION}-docker.pkg.dev/${MY_PROJECT_ID}/${MY_ARTIFACT_REPOSITORY}/litellm-proxy:latest" \
   --timeout="1h" \
   --region="$MY_REGION" \
-  --service-account="docker-build@${MY_PROJECT_ID}.iam.gserviceaccount.com" \
+  --service-account="projects/${MY_PROJECT_ID}/serviceAccounts/docker-build@${MY_PROJECT_ID}.iam.gserviceaccount.com" \
   --gcs-source-staging-dir="gs://docker-build-$MY_PROJECT_NUMBER/source" \
   --gcs-log-dir="gs://docker-build-$MY_PROJECT_NUMBER" \
   --project="$MY_PROJECT_ID" \
