@@ -21,9 +21,6 @@ You can execute everything using **Cloud Shell**.
 
 [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.png)](https://shell.cloud.google.com/cloudshell/open?shellonly=true&ephemeral=false&cloudshell_git_repo=https://github.com/mhakankara/gcloud_litellm&cloudshell_git_branch=master&cloudshell_tutorial=README.md)
 
-Follow the steps below step by step (copy & paste).
-
-
 ---
 
 ## Authenticate
@@ -32,292 +29,302 @@ Authenticate your Google Cloud Account:
 
 ```bash
 gcloud auth login
+```
 
+---
 
-⸻
+## Configuration
 
-Configuration
-
-
+<walkthrough-project-setup></walkthrough-project-setup>
 
 Set Google Cloud project ID (replace with your project):
 
+```bash
 MY_PROJECT_ID="<walkthrough-project-id/>"
+```
 
-Set default gcloud project:
+Set default `gcloud` project:
 
+```bash
 gcloud config set project "$MY_PROJECT_ID"
+```
 
-Get Google Cloud project number:
+Get Google Cloud **project number**:
 
+```bash
 MY_PROJECT_NUMBER="$(gcloud projects list --filter="$MY_PROJECT_ID" --format="value(PROJECT_NUMBER)" --quiet)"
 echo "Google Cloud project number: '$MY_PROJECT_NUMBER'"
+```
 
-Set Google Cloud region (recommended: us-central1):
+Set Google Cloud **region** (recommended: `us-central1`):
 
+```bash
 MY_REGION="us-central1"
+```
 
-Set your OpenAI API key (GPT-5 access):
+Set your **OpenAI API key** (GPT-5 access):
 
+```bash
 MY_OPENAI_API_KEY="<YOUR_OPENAI_API_KEY>"
+```
 
-Set Artifact Registry repository name for Docker images:
+Set **Artifact Registry** repository name for Docker images:
 
+```bash
 MY_ARTIFACT_REPOSITORY="llm-tools"
+```
 
-Enable APIs
+### Enable APIs
 
-Only necessary if the APIs are not yet enabled in the project.
-
+```bash
 gcloud services enable \
-    iam.googleapis.com \
-    run.googleapis.com \
-    artifactregistry.googleapis.com \
-    cloudbuild.googleapis.com \
-    containeranalysis.googleapis.com \
-    containerscanning.googleapis.com \
-    sqladmin.googleapis.com \
-    --project="$MY_PROJECT_ID" \
-    --quiet
+  iam.googleapis.com \
+  run.googleapis.com \
+  artifactregistry.googleapis.com \
+  cloudbuild.googleapis.com \
+  containeranalysis.googleapis.com \
+  containerscanning.googleapis.com \
+  sqladmin.googleapis.com \
+  --project="$MY_PROJECT_ID" \
+  --quiet
+```
 
+---
 
-⸻
-
-Create Service Accounts
+## Create Service Accounts
 
 Service account for LiteLLM proxy (Cloud Run):
 
+```bash
 gcloud iam service-accounts create "litellm-proxy" \
-    --description="LiteLLM proxy (Cloud Run)" \
-    --display-name="LiteLLM proxy" \
-    --project="$MY_PROJECT_ID" \
-    --quiet
+  --description="LiteLLM proxy (Cloud Run)" \
+  --display-name="LiteLLM proxy" \
+  --project="$MY_PROJECT_ID" \
+  --quiet
+```
 
-Grant Cloud SQL Client to the proxy:
+Grant **Cloud SQL Client**:
 
+```bash
 gcloud projects add-iam-policy-binding "$MY_PROJECT_ID" \
-    --member="serviceAccount:litellm-proxy@${MY_PROJECT_ID}.iam.gserviceaccount.com" \
-    --role="roles/cloudsql.client" \
-    --project="$MY_PROJECT_ID" \
-    --quiet
+  --member="serviceAccount:litellm-proxy@${MY_PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/cloudsql.client" \
+  --project="$MY_PROJECT_ID" \
+  --quiet
+```
 
 Create service account for building Docker images (Cloud Build):
 
+```bash
 gcloud iam service-accounts create "docker-build" \
-    --description="Build Docker container images (Cloud Build)" \
-    --display-name="Docker build" \
-    --project="$MY_PROJECT_ID" \
-    --quiet
+  --description="Build Docker container images (Cloud Build)" \
+  --display-name="Docker build" \
+  --project="$MY_PROJECT_ID" \
+  --quiet
+```
 
 Grant Artifact Registry + Logs Writer to the build SA:
 
+```bash
 gcloud projects add-iam-policy-binding "$MY_PROJECT_ID" \
-    --member="serviceAccount:docker-build@${MY_PROJECT_ID}.iam.gserviceaccount.com" \
-    --role="roles/artifactregistry.writer" \
-    --project="$MY_PROJECT_ID" \
-    --quiet
+  --member="serviceAccount:docker-build@${MY_PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/artifactregistry.writer" \
+  --project="$MY_PROJECT_ID" \
+  --quiet
 
 gcloud projects add-iam-policy-binding "$MY_PROJECT_ID" \
-    --member="serviceAccount:docker-build@${MY_PROJECT_ID}.iam.gserviceaccount.com" \
-    --role="roles/logging.logWriter" \
-    --project="$MY_PROJECT_ID" \
-    --quiet
+  --member="serviceAccount:docker-build@${MY_PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/logging.logWriter" \
+  --project="$MY_PROJECT_ID" \
+  --quiet
+```
 
+---
 
-⸻
+## Cloud SQL PostgreSQL Database
 
-Cloud SQL PostgreSQL Database
+Create a PostgreSQL instance:
 
-Create a PostgreSQL instance for LiteLLM data persistence:
-
+```bash
 gcloud sql instances create "litellm-db" \
-    --database-version="POSTGRES_15" \
-    --tier="db-f1-micro" \
-    --region="$MY_REGION" \
-    --storage-type="SSD" \
-    --storage-size="10GB" \
-    --storage-auto-increase \
-    --backup-start-time="03:00" \
-    --project="$MY_PROJECT_ID" \
-    --quiet
+  --database-version="POSTGRES_15" \
+  --tier="db-f1-micro" \
+  --region="$MY_REGION" \
+  --storage-type="SSD" \
+  --storage-size="10GB" \
+  --storage-auto-increase \
+  --backup-start-time="03:00" \
+  --project="$MY_PROJECT_ID" \
+  --quiet
+```
 
-Set the database password for the default postgres user:
+Set the password for `postgres` user:
 
+```bash
 gcloud sql users set-password "postgres" \
-    --instance="litellm-db" \
-    --password="<YOUR_DB_PASSWORD>" \
-    --project="$MY_PROJECT_ID" \
-    --quiet
+  --instance="litellm-db" \
+  --password="<YOUR_DB_PASSWORD>" \
+  --project="$MY_PROJECT_ID" \
+  --quiet
+```
 
-Create a database for LiteLLM:
+Create a database:
 
+```bash
 gcloud sql databases create "litellm" \
-    --instance="litellm-db" \
-    --project="$MY_PROJECT_ID" \
-    --quiet
+  --instance="litellm-db" \
+  --project="$MY_PROJECT_ID" \
+  --quiet
+```
+```
 
-Get the connection name for later use:
+Get the connection name:
 
+```bash
 MY_DB_CONNECTION_NAME="$(gcloud sql instances describe litellm-db --format="value(connectionName)" --project="$MY_PROJECT_ID" --quiet)"
 echo "Database connection name: '$MY_DB_CONNECTION_NAME'"
+```
 
+---
 
-⸻
+## Artifact Registry
 
-Artifact Registry
-
-Create Artifact Registry repository for Docker images
-
-Only necessary if the repository does not already exist in the project/region.
-
+```bash
 gcloud artifacts repositories create "$MY_ARTIFACT_REPOSITORY" \
-    --repository-format="docker" \
-    --description="Docker container registry for LiteLLM proxy" \
-    --location="$MY_REGION" \
-    --project="$MY_PROJECT_ID" \
-    --quiet
+  --repository-format="docker" \
+  --description="Docker container registry for LiteLLM proxy" \
+  --location="$MY_REGION" \
+  --project="$MY_PROJECT_ID" \
+  --quiet
+```
 
+---
 
-⸻
+## Storage Bucket
 
-Storage Bucket (Cloud Build logs + source staging)
-
-Create the bucket:
-
+```bash
 gcloud storage buckets create "gs://docker-build-$MY_PROJECT_NUMBER" \
-    --location="$MY_REGION" \
-    --project="$MY_PROJECT_ID" \
-    --quiet
+  --location="$MY_REGION" \
+  --project="$MY_PROJECT_ID" \
+  --quiet
+```
 
-Grant the Cloud Build service account Storage Admin on the bucket:
-
+```bash
 gcloud storage buckets add-iam-policy-binding "gs://docker-build-$MY_PROJECT_NUMBER" \
-    --member="serviceAccount:docker-build@${MY_PROJECT_ID}.iam.gserviceaccount.com" \
-    --role="roles/storage.admin" \
-    --project="$MY_PROJECT_ID" \
-    --quiet
+  --member="serviceAccount:docker-build@${MY_PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/storage.admin" \
+  --project="$MY_PROJECT_ID" \
+  --quiet
+```
 
+---
 
-⸻
+## Docker Container
 
-Docker Container
-
-Your repo must contain config.yaml and Dockerfile.
-Recommended base image in Dockerfile: ghcr.io/berriai/litellm-database:main-latest
-(Includes Prisma binaries. Optionally set USE_PRISMA_MIGRATE=True to auto-apply DB schema on boot.)
-
-Build Docker container image for LiteLLM proxy:
-
+```bash
 gcloud builds submit \
-    --tag="${MY_REGION}-docker.pkg.dev/${MY_PROJECT_ID}/${MY_ARTIFACT_REPOSITORY}/litellm-proxy:latest" \
-    --timeout="1h" \
-    --region="$MY_REGION" \
-    --service-account="docker-build@${MY_PROJECT_ID}.iam.gserviceaccount.com" \
-    --gcs-source-staging-dir="gs://docker-build-$MY_PROJECT_NUMBER/source" \
-    --gcs-log-dir="gs://docker-build-$MY_PROJECT_NUMBER" \
-    --project="$MY_PROJECT_ID" \
-    --quiet
+  --tag="${MY_REGION}-docker.pkg.dev/${MY_PROJECT_ID}/${MY_ARTIFACT_REPOSITORY}/litellm-proxy:latest" \
+  --timeout="1h" \
+  --region="$MY_REGION" \
+  --service-account="docker-build@${MY_PROJECT_ID}.iam.gserviceaccount.com" \
+  --gcs-source-staging-dir="gs://docker-build-$MY_PROJECT_NUMBER/source" \
+  --gcs-log-dir="gs://docker-build-$MY_PROJECT_NUMBER" \
+  --project="$MY_PROJECT_ID" \
+  --quiet
+```
 
+---
 
-⸻
+## Deploy LiteLLM Proxy
 
-Deploy LiteLLM Proxy
+Generate a master key:
 
-Generate a random master/admin key for the proxy:
-
+```bash
 MY_RANDOM=$(openssl rand -hex 21)
 echo "Proxy master key: 'sk-$MY_RANDOM'"
+```
 
-IMPORTANT — DATABASE_URL for Cloud Run ↔ Cloud SQL
+Deploy:
 
-Use the Unix socket style DSN (notice the empty host and ?host=/cloudsql/...):
-
-postgresql://postgres:<YOUR_DB_PASSWORD>@/litellm?host=/cloudsql/${MY_DB_CONNECTION_NAME}
-
-Deploy LiteLLM proxy as a public Cloud Run service:
-
+```bash
 gcloud run deploy "litellm-proxy" \
-    --image="${MY_REGION}-docker.pkg.dev/${MY_PROJECT_ID}/${MY_ARTIFACT_REPOSITORY}/litellm-proxy:latest" \
-    --memory=1024Mi \
-    --cpu=1 \
-    --cpu-boost \
-    --port="8080" \
-    --execution-environment=gen1 \
-    --description="LiteLLM Proxy (OpenAI GPT-5 only)" \
-    --region="$MY_REGION" \
-    --set-env-vars="LITELLM_MODE=PRODUCTION,LITELLM_LOG=ERROR" \
-    --set-env-vars="OPENAI_API_KEY=${MY_OPENAI_API_KEY}" \
-    --set-env-vars="LITELLM_MASTER_KEY=sk-${MY_RANDOM}" \
-    --set-env-vars="DATABASE_URL=postgresql://postgres:<YOUR_DB_PASSWORD>@/litellm?host=/cloudsql/${MY_DB_CONNECTION_NAME}" \
-    --add-cloudsql-instances="${MY_DB_CONNECTION_NAME}" \
-    --max-instances=1 \
-    --allow-unauthenticated \
-    --service-account "litellm-proxy@${MY_PROJECT_ID}.iam.gserviceaccount.com" \
-    --project="$MY_PROJECT_ID" \
-    --quiet
+  --image="${MY_REGION}-docker.pkg.dev/${MY_PROJECT_ID}/${MY_ARTIFACT_REPOSITORY}/litellm-proxy:latest" \
+  --memory=1024Mi \
+  --cpu=1 \
+  --cpu-boost \
+  --port="8080" \
+  --execution-environment=gen1 \
+  --description="LiteLLM Proxy (OpenAI GPT-5 only)" \
+  --region="$MY_REGION" \
+  --set-env-vars="LITELLM_MODE=PRODUCTION,LITELLM_LOG=ERROR" \
+  --set-env-vars="OPENAI_API_KEY=${MY_OPENAI_API_KEY}" \
+  --set-env-vars="LITELLM_MASTER_KEY=sk-${MY_RANDOM}" \
+  --set-env-vars="DATABASE_URL=postgresql://postgres:<YOUR_DB_PASSWORD>@/litellm?host=/cloudsql/${MY_DB_CONNECTION_NAME}" \
+  --add-cloudsql-instances="${MY_DB_CONNECTION_NAME}" \
+  --max-instances=1 \
+  --allow-unauthenticated \
+  --service-account "litellm-proxy@${MY_PROJECT_ID}.iam.gserviceaccount.com" \
+  --project="$MY_PROJECT_ID" \
+  --quiet
+```
 
-Optional (recommended in production):
-Add --set-env-vars="USE_PRISMA_MIGRATE=True" to auto-apply Prisma migrations on boot.
+---
 
-⸻
+## Test GPT-5
 
-Test (GPT-5 only)
-
+```bash
 MY_LITELLM_PROXY_URL="$(gcloud run services list --filter="litellm-proxy" --format="value(URL)" --quiet)"
 echo "API host: '$MY_LITELLM_PROXY_URL'"
 echo "Admin key:  'sk-$MY_RANDOM'"
+```
 
+```bash
 curl --location "${MY_LITELLM_PROXY_URL}/chat/completions" \
-    --header "Content-Type: application/json" \
-    --header "Authorization: Bearer sk-$MY_RANDOM" \
-    --data '{"model": "gpt-5", "messages": [{"role": "user", "content": "what llm are you"}]}'
+  --header "Content-Type: application/json" \
+  --header "Authorization: Bearer sk-$MY_RANDOM" \
+  --data '{"model": "gpt-5", "messages": [{"role": "user", "content": "what llm are you"}]}'
+```
 
+---
 
-⸻
+## Clean Up
 
-Clean Up
-
-Delete Cloud Run service and service account:
-
+```bash
 gcloud run services delete "litellm-proxy" \
-    --region="$MY_REGION" \
-    --project="$MY_PROJECT_ID" \
-    --quiet
+  --region="$MY_REGION" \
+  --project="$MY_PROJECT_ID" \
+  --quiet
+```
 
+```bash
 gcloud iam service-accounts delete "litellm-proxy@${MY_PROJECT_ID}.iam.gserviceaccount.com" \
-    --project="$MY_PROJECT_ID" \
-    --quiet
+  --project="$MY_PROJECT_ID" \
+  --quiet
+```
 
-Delete Artifact Registry repository:
-
+```bash
 gcloud artifacts repositories delete "$MY_ARTIFACT_REPOSITORY" \
-    --location="$MY_REGION" \
-    --project="$MY_PROJECT_ID" \
-    --quiet
+  --location="$MY_REGION" \
+  --project="$MY_PROJECT_ID" \
+  --quiet
+```
 
-Delete Cloud Build service account (optional):
-
+```bash
 gcloud iam service-accounts delete "docker-build@${MY_PROJECT_ID}.iam.gserviceaccount.com" \
-    --project="$MY_PROJECT_ID" \
-    --quiet
+  --project="$MY_PROJECT_ID" \
+  --quiet
+```
 
-Delete Cloud SQL instance (and DB):
-
+```bash
 gcloud sql instances delete "litellm-db" \
-    --project="$MY_PROJECT_ID" \
-    --quiet
+  --project="$MY_PROJECT_ID" \
+  --quiet
+```
 
-Delete the build logs bucket:
-
+```bash
 gcloud storage rm -r "gs://docker-build-$MY_PROJECT_NUMBER" \
-    --project="$MY_PROJECT_ID" \
-    --quiet
+  --project="$MY_PROJECT_ID" \
+  --quiet
+```
 
-
-⸻
-
-Notes
-	•	Do not use a TCP host/port DSN on Cloud Run; use the Unix socket DSN with ?host=/cloudsql/${MY_DB_CONNECTION_NAME} as shown above.
-	•	The build step must use the service account email in --service-account= and the logs bucket must exist and grant Storage Admin to that SA.
-	•	Your config.yaml should list only gpt-5 under model_list to ensure OpenAI GPT-5 only.
-
+---
