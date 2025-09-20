@@ -23,9 +23,12 @@ ENV PYTHONUNBUFFERED="True"
 # Default HTTP port (Cloud Run will set $PORT at runtime)
 EXPOSE 8080/tcp
 
-# Install LiteLLM proxy
+# Install LiteLLM proxy + prisma client CLI, then generate Prisma client
 COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir prisma && \
+    PRISMA_SCHEMA_PATH="$(python - <<'PY'\nimport litellm\nfrom pathlib import Path\np = Path(litellm.__file__).parent / 'proxy' / 'prisma' / 'schema.prisma'\nprint(p)\nPY\n)" && \
+    python -m prisma generate --schema "$PRISMA_SCHEMA_PATH" && \
     pip cache purge
 
 # Copy default config; can be overridden with --config
