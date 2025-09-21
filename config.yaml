@@ -3,9 +3,9 @@ general_settings:
   master_key: "<YOUR_MASTER_KEY>"
 
 model_list:
-  - model_name: gpt-5                   # public name your apps call
+  - model_name: gpt-5-chat-latest                  # public name your apps call
     litellm_params:
-      model: gpt-5                      # upstream OpenAI model id
+      model: gpt-5-chat-latest                    # upstream OpenAI model id
 
 # Best practices for production
 # Docs: https://docs.litellm.ai/docs/proxy/prod
