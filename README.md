@@ -161,9 +161,13 @@ gcloud sql instances create "litellm-db" \
 Set the password for `postgres` user:
 
 ```bash
+MY_DB_PASSWORD="REPLACE_ME_WITH_STRONG_PASSWORD"
+```
+
+```bash
 gcloud sql users set-password "postgres" \
   --instance="litellm-db" \
-  --password="<YOUR_DB_PASSWORD>" \
+  --password="$MY_DB_PASSWORD" \
   --project="$MY_PROJECT_ID" \
   --quiet
 ```
@@ -248,12 +252,17 @@ echo "SALT  : sk-$MY_SALT"
 Set DB password
 
 ```bash
-# Set your actual Postgres password here 
-MY_DB_PASSWORD="REPLACE_ME_WITH_STRONG_PASSWORD"
-
 # Build a Prisma-friendly Cloud SQL socket DSN.
-# Use localhost:5432 (required by Prisma) + ?host=/cloudsql/PROJECT:REGION:INSTANCE
+# Prisma needs a host:port; the real connection uses the Unix socket in ?host=/cloudsql/...
 DB_SOCKET="postgresql://postgres:${MY_DB_PASSWORD}@localhost:5432/litellm?host=/cloudsql/${MY_PROJECT_ID}:${MY_REGION}:litellm-db"
+```
+
+Generate an Admin UI password (or set your own)
+```bash
+UI_USERNAME="admin"
+UI_PASSWORD="$(openssl rand -base64 18)"
+echo "UI username: $UI_USERNAME"
+echo "UI password: $UI_PASSWORD"
 ```
 
 ```bash
@@ -265,10 +274,10 @@ gcloud run deploy "litellm-proxy" \
   --cpu-boost \
   --execution-environment="gen1" \
   --port="8080" \
-  --add-cloudsql-instances="${MY_PROJECT_ID}:us-central1:litellm-db" \
+  --add-cloudsql-instances="${MY_PROJECT_ID}:${MY_REGION}:litellm-db" \
   --service-account="litellm-proxy@${MY_PROJECT_ID}.iam.gserviceaccount.com" \
   --allow-unauthenticated \
-  --set-env-vars="LITELLM_MODE=PRODUCTION,LITELLM_LOG=ERROR,OPENAI_API_KEY=${MY_OPENAI_API_KEY},LITELLM_MASTER_KEY=sk-${MY_RANDOM},LITELLM_SALT_KEY=sk-${MY_SALT},DATABASE_URL=${DB_SOCKET}" \
+  --set-env-vars="LITELLM_MODE=PRODUCTION,LITELLM_LOG=ERROR,OPENAI_API_KEY=${MY_OPENAI_API_KEY},LITELLM_MASTER_KEY=sk-${MY_RANDOM},LITELLM_SALT_KEY=sk-${MY_SALT},STORE_MODEL_IN_DB=True,USE_PRISMA_MIGRATE=True,DATABASE_URL=${DB_SOCKET},UI_USERNAME=${UI_USERNAME},UI_PASSWORD=${UI_PASSWORD}" \
   --project="$MY_PROJECT_ID" \
   --quiet
 ```
